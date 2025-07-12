@@ -1,5 +1,5 @@
 import asyncio
-from typing import Literal, cast
+from typing import Literal, Self, cast
 
 from langchain.chat_models import init_chat_model
 from langgraph.graph import StateGraph
@@ -34,6 +34,30 @@ class GraphState(BaseModel):
     failure_message: str | None
     rates: dict[Currencies, float]
 
+    def set_raw_user_input(self, raw_user_input: str) -> Self:
+        new_state = self.model_copy()
+        new_state.raw_user_input = raw_user_input
+
+        return new_state
+
+    def set_user_currency_input(self, user_currency_input: Currencies) -> Self:
+        new_state = self.model_copy()
+        new_state.user_currency_input = user_currency_input
+
+        return new_state
+
+    def set_failure_message(self, failure_message: str) -> Self:
+        new_state = self.model_copy()
+        new_state.failure_message = failure_message
+
+        return new_state
+
+    def set_rates(self, rates: dict[Currencies, float]) -> Self:
+        new_state = self.model_copy()
+        new_state.rates = rates
+
+        return new_state
+
 
 gpt4o_mini_model = init_chat_model("gpt-4o-mini", model_provider="openai")
 
@@ -51,22 +75,11 @@ def get_user_currency_input_node(state: GraphState) -> Command:
 
     if not user_currency_input:
         return Command(
-            update=GraphState(
-                raw_user_input=state.raw_user_input,
-                user_currency_input=state.user_currency_input,
-                failure_message="Invalid user input",
-                rates={},
-            ),
-            goto="failure_node",
+            update=state.set_failure_message("Invalid user input"), goto="failure_node"
         )
 
     return Command(
-        update=GraphState(
-            raw_user_input=user_currency_input,
-            user_currency_input=state.user_currency_input,
-            failure_message=state.failure_message,
-            rates={},
-        ),
+        update=state.set_raw_user_input(user_currency_input),
         goto="identify_currency_code_node",
     )
 
@@ -102,11 +115,8 @@ Currency symbol:
     identified_currency_code = gpt4o_mini_model_message.content.strip().upper()
     if identified_currency_code not in CURRENCIES:
         return Command(
-            update=GraphState(
-                raw_user_input=state.raw_user_input,
-                user_currency_input=state.user_currency_input,
-                failure_message=f"'{state.raw_user_input}' is an unknown forex",
-                rates={},
+            update=state.set_failure_message(
+                f"'{state.raw_user_input}' is an unknown forex"
             ),
             goto="failure_node",
         )
@@ -115,12 +125,7 @@ Currency symbol:
     identified_currency_code = cast(Currencies, identified_currency_code)
 
     return Command(
-        update=GraphState(
-            raw_user_input=state.raw_user_input,
-            user_currency_input=identified_currency_code,
-            failure_message=state.failure_message,
-            rates={},
-        ),
+        update=state.set_user_currency_input(identified_currency_code),
         goto="get_foreign_exchange_rates",
     )
 
@@ -128,17 +133,19 @@ Currency symbol:
 async def get_foreign_exchange_rates(state: GraphState) -> Command:
     assert state.user_currency_input
 
-    response = await foreign_exchange_client.get_rates(base=state.user_currency_input)
+    try:
+        response = await foreign_exchange_client.get_rates(
+            base=state.user_currency_input
+        )
+    except Exception:
+        return Command(
+            update=state.set_failure_message(
+                f"Failed to get exchange rates for '{state.user_currency_input}'"
+            ),
+            goto="failure_node",
+        )
 
-    return Command(
-        update=GraphState(
-            raw_user_input=state.raw_user_input,
-            user_currency_input=state.user_currency_input,
-            failure_message=state.failure_message,
-            rates=response.rates,
-        ),
-        goto="end_node",
-    )
+    return Command(update=state.set_rates(response.rates), goto="end_node")
 
 
 def end_node(state: GraphState) -> GraphState:

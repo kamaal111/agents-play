@@ -19,7 +19,8 @@
                 "tamasfe.even-better-toml",
                 "ms-python.python",
                 "charliermarsh.ruff",
-                "naumovs.color-highlight"
+                "naumovs.color-highlight",
+                "ms-python.mypy-type-checker"
             ]
         }
     },

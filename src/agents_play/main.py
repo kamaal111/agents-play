@@ -3,6 +3,7 @@ from typing import Literal, cast
 
 from langchain.chat_models import init_chat_model
 from langgraph.graph import StateGraph
+from langgraph.types import Command as LanggraphCommand
 from pydantic import BaseModel
 
 from agents_play.conf import settings
@@ -24,12 +25,13 @@ GraphNodes = Literal[
     "get_foreign_exchange_rates",
 ]
 
+Command = LanggraphCommand[GraphNodes]
+
 
 class GraphState(BaseModel):
     raw_user_input: str | None
     user_currency_input: Currencies | None
     failure_message: str | None
-    next_node: GraphNodes | None
     rates: dict[Currencies, float]
 
 
@@ -38,7 +40,7 @@ gpt4o_mini_model = init_chat_model("gpt-4o-mini", model_provider="openai")
 foreign_exchange_client = ForeignExchangeClient()
 
 
-def get_user_currency_input_node(state: GraphState) -> GraphState:
+def get_user_currency_input_node(state: GraphState) -> Command:
     user_currency_input: str | None = None
     try:
         user_currency_input = input(
@@ -48,20 +50,24 @@ def get_user_currency_input_node(state: GraphState) -> GraphState:
         pass
 
     if not user_currency_input:
-        return GraphState(
-            raw_user_input=state.raw_user_input,
-            user_currency_input=state.user_currency_input,
-            failure_message="Invalid user input",
-            next_node="failure_node",
-            rates={},
+        return Command(
+            update=GraphState(
+                raw_user_input=state.raw_user_input,
+                user_currency_input=state.user_currency_input,
+                failure_message="Invalid user input",
+                rates={},
+            ),
+            goto="failure_node",
         )
 
-    return GraphState(
-        raw_user_input=user_currency_input,
-        user_currency_input=state.user_currency_input,
-        failure_message=state.failure_message,
-        next_node="identify_currency_code_node",
-        rates={},
+    return Command(
+        update=GraphState(
+            raw_user_input=user_currency_input,
+            user_currency_input=state.user_currency_input,
+            failure_message=state.failure_message,
+            rates={},
+        ),
+        goto="identify_currency_code_node",
     )
 
 
@@ -73,7 +79,7 @@ def failure_node(state: GraphState) -> GraphState:
     return state
 
 
-def identify_currency_code_node(state: GraphState) -> GraphState:
+def identify_currency_code_node(state: GraphState) -> Command:
     assert state.raw_user_input
 
     identify_currency_code_prompt = f"""
@@ -95,48 +101,48 @@ Currency symbol:
 
     identified_currency_code = gpt4o_mini_model_message.content.strip().upper()
     if identified_currency_code not in CURRENCIES:
-        return GraphState(
-            raw_user_input=state.raw_user_input,
-            user_currency_input=state.user_currency_input,
-            failure_message=f"'{state.raw_user_input}' is an unknown forex",
-            next_node="failure_node",
-            rates={},
+        return Command(
+            update=GraphState(
+                raw_user_input=state.raw_user_input,
+                user_currency_input=state.user_currency_input,
+                failure_message=f"'{state.raw_user_input}' is an unknown forex",
+                rates={},
+            ),
+            goto="failure_node",
         )
 
     # Validated above so its safe to cast
     identified_currency_code = cast(Currencies, identified_currency_code)
 
-    return GraphState(
-        raw_user_input=state.raw_user_input,
-        user_currency_input=identified_currency_code,
-        failure_message=state.failure_message,
-        next_node="get_foreign_exchange_rates",
-        rates={},
+    return Command(
+        update=GraphState(
+            raw_user_input=state.raw_user_input,
+            user_currency_input=identified_currency_code,
+            failure_message=state.failure_message,
+            rates={},
+        ),
+        goto="get_foreign_exchange_rates",
     )
 
 
-async def get_foreign_exchange_rates(state: GraphState) -> GraphState:
+async def get_foreign_exchange_rates(state: GraphState) -> Command:
     assert state.user_currency_input
 
     response = await foreign_exchange_client.get_rates(base=state.user_currency_input)
 
-    return GraphState(
-        raw_user_input=state.raw_user_input,
-        user_currency_input=state.user_currency_input,
-        failure_message=state.failure_message,
-        next_node="end_node",
-        rates=response.rates,
+    return Command(
+        update=GraphState(
+            raw_user_input=state.raw_user_input,
+            user_currency_input=state.user_currency_input,
+            failure_message=state.failure_message,
+            rates=response.rates,
+        ),
+        goto="end_node",
     )
 
 
 def end_node(state: GraphState) -> GraphState:
     return state
-
-
-def next_node_edge(state: GraphState) -> GraphNodes:
-    assert state.next_node
-
-    return state.next_node
 
 
 graph = (
@@ -147,9 +153,6 @@ graph = (
     .add_node("get_foreign_exchange_rates", get_foreign_exchange_rates)
     .add_node("end_node", end_node)
     .set_entry_point("get_user_currency_input_node")
-    .add_conditional_edges("get_user_currency_input_node", next_node_edge)
-    .add_conditional_edges("identify_currency_code_node", next_node_edge)
-    .add_conditional_edges("get_foreign_exchange_rates", next_node_edge)
     .set_finish_point("failure_node")
     .set_finish_point("end_node")
     .compile()
@@ -159,7 +162,6 @@ initial_state = GraphState(
     raw_user_input=None,
     user_currency_input=None,
     failure_message=None,
-    next_node=None,
     rates={},
 )
 

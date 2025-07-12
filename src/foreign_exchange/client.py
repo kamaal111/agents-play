@@ -4,7 +4,8 @@ import urllib
 import aiohttp
 
 from foreign_exchange.conf import settings
-from foreign_exchange.responses import Currencies, RatesResponse
+from foreign_exchange.currencies import Currencies
+from foreign_exchange.responses import RatesResponse
 
 
 class ForeignExchangeClient:

@@ -40,7 +40,6 @@ bootstrap: prepare setup-pre-commit
 # Set up dev container. This step runs after building the dev container
 post-dev-container-create:
     just bootstrap
-    just .devcontainer/post-create
 
 [private]
 setup-pre-commit:

@@ -1,8 +1,10 @@
 import asyncio
+import json
 from typing import Literal, Self, cast
 
-from langchain.chat_models import init_chat_model
+from langchain_core.tools import tool
 from langgraph.graph import StateGraph
+from langgraph.prebuilt import create_react_agent
 from langgraph.types import Command as LanggraphCommand
 from pydantic import BaseModel
 
@@ -10,7 +12,6 @@ from agents_play.conf import settings
 from foreign_exchange.client import ForeignExchangeClient
 from foreign_exchange.currencies import (
     CURRENCIES,
-    CURRENCIES_MAPPED_TO_NAMES,
     Currencies,
 )
 
@@ -19,10 +20,9 @@ assert settings.openai_api_key
 
 GraphNodes = Literal[
     "get_user_currency_input_node",
-    "identify_currency_code_node",
+    "determine_currency_and_get_rates_node",
     "end_node",
     "failure_node",
-    "get_foreign_exchange_rates",
 ]
 
 Command = LanggraphCommand[GraphNodes]
@@ -59,15 +59,47 @@ class GraphState(BaseModel):
         return new_state
 
 
-gpt4o_mini_model = init_chat_model("gpt-4o-mini", model_provider="openai")
-
 foreign_exchange_client = ForeignExchangeClient()
+
+
+@tool
+async def get_exchange_rates(base_currency: str) -> dict[Currencies, float]:
+    """Get current foreign exchange rates for a base currency.
+
+    Args:
+        base_currency: The 3-letter currency code to use as base (e.g., 'USD', 'EUR', 'GBP')
+
+    Returns:
+        Dictionary mapping currency codes to their exchange rates relative to the base currency
+    """
+
+    base_currency_upper = base_currency.strip().upper()
+    if base_currency_upper not in CURRENCIES:
+        raise ValueError(
+            f"Unsupported currency: {base_currency}. Must be one of: {', '.join(CURRENCIES)}"
+        )
+
+    # Cast to proper type since we validated above
+    validated_base_currency = cast(Currencies, base_currency_upper)
+
+    try:
+        print("🐸🐸🐸 IN TOOL")
+        response = await foreign_exchange_client.get_rates(base=validated_base_currency)
+    except Exception as e:
+        raise RuntimeError(
+            f"Failed to get exchange rates for '{base_currency}': {str(e)}"
+        )
+
+    return response.rates
+
+
+gpt4o_mini_agent = create_react_agent("openai:gpt-4o-mini", tools=[get_exchange_rates])
 
 
 def get_user_currency_input_node(state: GraphState) -> Command:
     user_currency_input = state.raw_user_input
     if user_currency_input:
-        return Command(update=state, goto="identify_currency_code_node")
+        return Command(update=state, goto="determine_currency_and_get_rates_node")
 
     try:
         user_currency_input = input(
@@ -83,7 +115,7 @@ def get_user_currency_input_node(state: GraphState) -> Command:
 
     return Command(
         update=state.set_raw_user_input(user_currency_input),
-        goto="identify_currency_code_node",
+        goto="determine_currency_and_get_rates_node",
     )
 
 
@@ -95,60 +127,92 @@ def failure_node(state: GraphState) -> GraphState:
     return state
 
 
-def identify_currency_code_node(state: GraphState) -> Command:
+async def determine_currency_and_get_rates_node(state: GraphState) -> Command:
+    """
+    Use the AI model with the exchange rates tool to:
+    1. Identify the currency from user input
+    2. Automatically call the get_exchange_rates tool
+    3. Return the rates data
+    """
     assert state.raw_user_input
 
-    identify_currency_code_prompt = f"""
-You are a currency identification assistant. Based on the user's input, determine which currency they are referring to.
+    currency_and_rates_prompt = f"""
+You are a helpful foreign exchange assistant with access to real-time currency data.
 
-Available currencies and their symbols:
-{"\n".join([f"- {symbol}: {name}" for symbol, name in CURRENCIES_MAPPED_TO_NAMES.items()])}
+The user said: "{state.raw_user_input}"
 
-User input: "{state.raw_user_input}"
+CRITICAL: The input MUST be explicitly about currencies, money, or exchange rates.
 
-Please respond with ONLY the 3-letter currency symbol (e.g., "USD", "EUR", "GBP") that best matches the user's input.
-If the user mentions a currency name, country, or partial match, return the corresponding symbol.
-If you cannot determine a clear match, respond with "UNKNOWN".
+STRICT CURRENCY IDENTIFICATION RULES:
+- The input must contain clear, unambiguous currency-related content
+- Acceptable inputs ONLY include:
+  * Currency codes (USD, EUR, GBP, etc.)
+  * Currency names (Dollar, Euro, Pound, Yen, etc.)
+  * Country names when asking about their currency (United States, Germany, Japan, etc.)
+  * Nationalities when asking about their currency (American, German, Japanese, etc.)
+  * Currency names in other languages (Dólar, Euro, Libra, etc.)
+  * Explicit currency questions ("What's the rate for...", "How much is the Euro worth?")
 
-Currency symbol:
+IMMEDIATELY REJECT ALL inputs that are NOT directly currency-related:
+- Expressions of uncertainty: "I don't know", "I'm not sure", "Maybe", "Dunno", "No idea"
+- Vague responses: "Unknown", "Test", "Random", "Something", "Anything"
+- Unrelated phrases: "Let me in please", "Hello", "Help me", "Show me something"
+- Commands or requests not about currency: "Open this", "Give me access", "Start something"
+- Questions about non-currency topics
+- Incomplete or ambiguous statements without currency context
+- Any phrase that doesn't explicitly mention or imply a specific currency
+- Nonsensical or testing inputs
+
+ABSOLUTE REQUIREMENTS:
+- The input MUST explicitly reference a currency, country's money, or exchange rates
+- Never interpret non-currency phrases as currency requests
+- Never default to any currency (including USD) for unclear inputs
+- Never guess what currency someone might want based on non-currency context
+- If the input doesn't clearly mention money/currency/exchange rates, REJECT IT
+
+Available currencies: {", ".join(CURRENCIES)}
+
+If the input explicitly mentions a currency and you can confidently identify it, use the get_exchange_rates tool.
+If the input does NOT explicitly reference currencies or exchange rates, respond with "UNKNOWN_CURRENCY" and do not call any tools.
 """.strip()
-    gpt4o_mini_model_message = gpt4o_mini_model.invoke(identify_currency_code_prompt)
-    assert isinstance(gpt4o_mini_model_message.content, str)
-
-    identified_currency_code = gpt4o_mini_model_message.content.strip().upper()
-    if identified_currency_code not in CURRENCIES:
-        return Command(
-            update=state.set_failure_message(
-                f"'{state.raw_user_input}' is an unknown forex"
-            ),
-            goto="failure_node",
-        )
-
-    # Validated above so its safe to cast
-    identified_currency_code = cast(Currencies, identified_currency_code)
-
-    return Command(
-        update=state.set_user_currency_input(identified_currency_code),
-        goto="get_foreign_exchange_rates",
-    )
-
-
-async def get_foreign_exchange_rates(state: GraphState) -> Command:
-    assert state.user_currency_input
 
     try:
-        response = await foreign_exchange_client.get_rates(
-            base=state.user_currency_input
+        response = await gpt4o_mini_agent.ainvoke(
+            {"messages": [{"role": "user", "content": currency_and_rates_prompt}]}
         )
-    except Exception:
+    except Exception as e:
         return Command(
             update=state.set_failure_message(
-                f"Failed to get exchange rates for '{state.user_currency_input}'"
+                f"Error processing currency request: {str(e)}"
             ),
             goto="failure_node",
         )
 
-    return Command(update=state.set_rates(response.rates), goto="end_node")
+    messages = response["messages"]
+    tool_call = messages[1]
+    if not tool_call.tool_calls:
+        return Command(
+            update=state.set_failure_message(
+                f"Could not identify a valid currency from: '{state.raw_user_input}'"
+            ),
+            goto="failure_node",
+        )
+
+    base_currency = tool_call.tool_calls[0]["args"]["base_currency"]
+    if base_currency not in CURRENCIES:
+        return Command(
+            update=state.set_failure_message(
+                f"AI identified invalid currency: '{base_currency}'"
+            ),
+            goto="failure_node",
+        )
+
+    return Command(
+        update=state.set_user_currency_input(cast(Currencies, base_currency)).set_rates(
+            json.loads(messages[2].content)
+        ),
+        goto="end_node",
+    )
 
 
 def end_node(state: GraphState) -> GraphState:
@@ -159,8 +223,9 @@ graph = (
     StateGraph(GraphState)
     .add_node("get_user_currency_input_node", get_user_currency_input_node)
     .add_node("failure_node", failure_node)
-    .add_node("identify_currency_code_node", identify_currency_code_node)
-    .add_node("get_foreign_exchange_rates", get_foreign_exchange_rates)
+    .add_node(
+        "determine_currency_and_get_rates_node", determine_currency_and_get_rates_node
+    )
     .add_node("end_node", end_node)
     .set_entry_point("get_user_currency_input_node")
     .set_finish_point("failure_node")

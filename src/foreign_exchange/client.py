@@ -17,6 +17,8 @@ class ForeignExchangeClient:
                 response.raise_for_status()
                 json_data = await response.json()
 
+                print("🐸🐸🐸 GO GET IT!")
+
                 return RatesResponse(**json_data)
 
     @property

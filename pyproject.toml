@@ -28,3 +28,5 @@ mypy_path = "src"
 packages = ["agents_play", "foreign_exchange", "common"]
 python_version = "3.13"
 strict = true
+namespace_packages = true
+explicit_package_bases = true

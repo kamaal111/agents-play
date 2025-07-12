@@ -65,7 +65,10 @@ foreign_exchange_client = ForeignExchangeClient()
 
 
 def get_user_currency_input_node(state: GraphState) -> Command:
-    user_currency_input: str | None = None
+    user_currency_input = state.raw_user_input
+    if user_currency_input:
+        return Command(update=state, goto="identify_currency_code_node")
+
     try:
         user_currency_input = input(
             "Which currency do you want to know the rates of today?\n"

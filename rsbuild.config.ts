@@ -3,5 +3,5 @@ import { pluginReact } from '@rsbuild/plugin-react';
 
 export default defineConfig({
   plugins: [pluginReact()],
-  source:{entry: {filename: './frontend/index'}}
+  source: { entry: { filename: './frontend/index' } },
 });

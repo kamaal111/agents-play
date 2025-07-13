@@ -1,4 +1,5 @@
 ARG UV_VERSION="0.7.20"
+ARG NODE_VERSION="24"
 
 FROM debian:bookworm-slim
 
@@ -23,3 +24,4 @@ RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
 # Install Dev tools
 RUN . ~/.cargo/env && cargo install atuin
 RUN . ~/.cargo/env && cargo install eza
+RUN . ~/.cargo/env && cargo install fnm

@@ -4,9 +4,13 @@ set dotenv-load
 default:
     just --list --unsorted
 
-# Run app in dev mode
-dev: prepare
+# Run server in dev mode
+dev-server: prepare-server
     uv run server/agents_play/main.py
+
+# Run frontend in dev mode
+dev-fe: prepare-fe
+    pnpm dev
 
 # Lint code
 lint:
@@ -28,18 +32,51 @@ format:
 quality: lint type-check format
 
 # Prepare to run project
-prepare: install-modules
+prepare: prepare-server prepare-fe
+
+# Prepare server
+prepare-server: install-python-modules
+
+# Prepare frontend
+prepare-fe: install-node-modules
 
 # Install modules
-install-modules:
+install-modules: install-python-modules install-node-modules
+
+# Install Node modules
+install-node-modules:
+    #!/bin/zsh
+
+    . ~/.zshrc
+
+    echo "Y" | pnpm i
+
+# Install Python modules
+install-python-modules:
     uv sync
 
 # Bootstrap project
-bootstrap: prepare setup-pre-commit
+bootstrap: install-node install-pnpm prepare setup-pre-commit
 
 # Set up dev container. This step runs after building the dev container
-post-dev-container-create:
-    just bootstrap
+post-dev-container-create: bootstrap
+
+[private]
+install-pnpm:
+    #!/bin/zsh
+
+    . ~/.zshrc
+
+    corepack enable pnpm
+
+[private]
+install-node:
+    #!/bin/zsh
+
+    . ~/.zshrc
+
+    fnm completions --shell zsh
+    fnm install
 
 [private]
 setup-pre-commit:

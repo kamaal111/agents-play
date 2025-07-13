@@ -6,7 +6,7 @@ default:
 
 # Run app in dev mode
 dev: prepare
-    uv run src/agents_play/main.py
+    uv run server/agents_play/main.py
 
 # Lint code
 lint:

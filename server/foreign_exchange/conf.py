@@ -1,6 +1,5 @@
-from pydantic import HttpUrl
-
 from common.conf import BaseSettings
+from pydantic import HttpUrl
 
 
 class __Settings(BaseSettings):

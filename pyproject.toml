@@ -6,6 +6,7 @@ readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
     "aiohttp[speedups]>=3.12.14",
+    "fastapi[standard]>=0.116.1",
     "langchain-core>=0.3.68",
     "langchain[openai]>=0.3.26",
     "langgraph[openai]>=0.5.2",
@@ -18,14 +19,20 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build]
-packages = ["server/agents_play", "server/foreign_exchange", "server/common"]
+packages = [
+    "server/agents_play",
+    "server/foreign_exchange",
+    "server/common",
+    "server/chat",
+    "server/health",
+]
 
 [dependency-groups]
 dev = ["mypy>=1.16.1", "pre-commit>=4.2.0", "ruff>=0.12.3"]
 
 [tool.mypy]
 mypy_path = "server"
-packages = ["agents_play", "foreign_exchange", "common"]
+packages = ["agents_play", "foreign_exchange", "common", "chat", "health"]
 python_version = "3.13"
 strict = true
 namespace_packages = true

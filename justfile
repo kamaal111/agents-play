@@ -1,12 +1,14 @@
 set dotenv-load
 
+PORT := "8000"
+
 # List available commands
 default:
     just --list --unsorted
 
 # Run server in dev mode
 dev-server: prepare-server
-    uv run server/agents_play/main.py
+    uv run uvicorn server.agents_play.main:app --reload --host 0.0.0.0 --port {{ PORT }}
 
 # Run frontend in dev mode
 dev-fe: prepare-fe

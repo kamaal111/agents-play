@@ -1,12 +1,6 @@
-import asyncio
+from fastapi import FastAPI
+from health.router import health_router
 
-from foreign_exchange.graph import foreign_exchange_graph_async_invoke
+app = FastAPI()
 
-
-async def main() -> None:
-    end_state = await foreign_exchange_graph_async_invoke()
-    print(end_state)
-
-
-if __name__ == "__main__":
-    asyncio.run(main())
+app.include_router(health_router)

@@ -2,65 +2,71 @@ set dotenv-load
 
 PORT := "8000"
 
+UV := "uv"
+UVR := UV + " run"
+
+PN := "pnpm"
+PNR := PN + " run"
+
 # List available commands
 default:
     just --list --unsorted
 
 # Run server in dev mode
 dev-server: prepare-server
-    uv run uvicorn server.agents_play.main:app --reload --host 0.0.0.0 --port {{ PORT }}
+    {{ UVR }} uvicorn server.agents_play.main:app --reload --host 0.0.0.0 --port {{ PORT }}
 
 # Run frontend in dev mode
 dev-fe: prepare-fe
-    pnpm dev
+    {{ PNR }} dev
 
 # Lint code
 lint: lint-server lint-fe
 
 # Lint server code
 lint-server:
-    uv run ruff check .
+    {{ UVR }} ruff check .
 
 # Lint frontend code
 lint-fe:
-    pnpm lint
+    {{ PNR }} lint
 
 # Lint and fix any issues that can be fixed automatically
 lint-fix: lint-fix-server lint-fix-fe
 
 # Lint and fix any server issues that can be fixed automatically
 lint-fix-server:
-    uv run ruff check . --fix
+    {{ UVR }} ruff check . --fix
 
 # Lint and fix any frontend issues that can be fixed automatically
 lint-fix-fe:
-    pnpm lint:fix
+    {{ PNR }} lint:fix
 
 # Type check
 type-check: type-check-server
 
 # Type check server
 type-check-server:
-    uv run mypy .
+    {{ UVR }} mypy .
 
 # Type check frontend
 type-check-fe:
-    pnpm type-check
+    {{ PNR }} type-check
 
 # Format code
 format: format-server format-fe
 
 # Format server code
 format-server:
-    uv run ruff format .
+    {{ UVR }} ruff format .
 
 # Format frontend code
 format-fe:
-    pnpm format
+    {{ PNR }} format
 
 # Format frontend code
 format-check-fe:
-    pnpm format:check
+    {{ PNR }} format:check
 
 # Quality checks
 quality: quality-server quality-fe

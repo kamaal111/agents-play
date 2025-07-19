@@ -16,6 +16,8 @@ class BaseDatabase:
 
 
 def create_db_and_tables(database: Databaseable) -> None:
+    from llm.models import ChatRoom  # noqa: F401
+
     SQLModel.metadata.create_all(database.engine)
 
 

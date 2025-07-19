@@ -20,5 +20,23 @@ class AgentsPlayError(HTTPException):
         super().__init__(status_code, list(map(_base_model_as_dict, details)), headers)
 
 
+class AgentsPlayBadRequestError(AgentsPlayError):
+    def __init__(self, headers: dict[str, str] | None = None):
+        super().__init__(
+            HTTPStatus.BAD_REQUEST,
+            [AgentsPlayErrorDetail(msg="Invalid payload", type="invalid_payload")],
+            headers,
+        )
+
+
+class AgentsPlayNotFoundError(AgentsPlayError):
+    def __init__(self, headers: dict[str, str] | None = None):
+        super().__init__(
+            HTTPStatus.NOT_FOUND,
+            [AgentsPlayErrorDetail(msg="Not found", type="not_found")],
+            headers,
+        )
+
+
 def _base_model_as_dict(base_model: BaseModel) -> dict[str, Any]:
     return base_model.model_dump()

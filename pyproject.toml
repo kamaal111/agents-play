@@ -6,7 +6,6 @@ readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
     "aiohttp[speedups]>=3.12.14",
-    "bcrypt>=4.3.0",
     "fastapi[standard]>=0.116.1",
     "langchain-core>=0.3.68",
     "langchain[openai]>=0.3.26",
@@ -15,12 +14,10 @@ dependencies = [
     "pydantic>=2.11.7",
     "pydantic-extra-types>=2.10.5",
     "pydantic-settings>=2.10.1",
-    "pyjwt>=2.10.1",
     "pytz>=2025.2",
     "sqlalchemy>=2.0.41",
     "sqlalchemy-utils>=0.41.2",
     "sqlmodel>=0.0.24",
-    "types-pytz>=2025.2.0.20250516",
 ]
 
 [build-system]
@@ -32,14 +29,19 @@ packages = [
     "server/agents_play",
     "server/foreign_exchange",
     "server/common",
-    "server/auth",
+    "server/llm",
     "server/health",
     "server/app_api",
     "server/database",
 ]
 
 [dependency-groups]
-dev = ["mypy>=1.16.1", "pre-commit>=4.2.0", "ruff>=0.12.3"]
+dev = [
+    "mypy>=1.16.1",
+    "pre-commit>=4.2.0",
+    "ruff>=0.12.3",
+    "types-pytz>=2025.2.0.20250516",
+]
 
 [tool.mypy]
 mypy_path = "server"

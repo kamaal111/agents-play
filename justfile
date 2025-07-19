@@ -9,11 +9,11 @@ UVR := UV + " run"
 PN := "pnpm"
 PNR := PN + " run"
 
-DATABASE_USER := "agents-play-user"
+DATABASE_USER := "agent-play-user"
 DATABASE_PASSWORD := "secure-password"
 DATABASE_HOST := "db"
 DATABASE_PORT := "5432"
-DATABASE_NAME := "agents_play_db"
+DATABASE_NAME := "agent_play_db"
 DATABASE_SSLMODE := "disable"
 DATABASE_DRIVER := "psycopg"
 DATABASE_URL := "postgresql+" + DATABASE_DRIVER + "://" + DATABASE_USER + ":" + DATABASE_PASSWORD + "@" + DATABASE_HOST + ":" + DATABASE_PORT / DATABASE_NAME

@@ -39,3 +39,7 @@ def get_database() -> Databaseable:
         create_db_and_tables(__database)
 
     return __database
+
+
+if settings.database_url.startswith("postgresql+psycopg"):
+    get_database()

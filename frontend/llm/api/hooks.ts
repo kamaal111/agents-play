@@ -21,13 +21,11 @@ function withErrorHandling<Params extends Array<unknown>, Result>(
     } catch (error) {
       asserts.invariant(error instanceof Error, 'error should have been a error');
 
-      if (!(error instanceof APIError)) {
+      if (error instanceof APIError) {
+        toast.error(error.message);
+      } else {
         toast.error('Something went wrong');
-
-        throw error;
       }
-
-      toast.error(error.message);
 
       throw error;
     }

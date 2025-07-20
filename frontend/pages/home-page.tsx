@@ -1,4 +1,5 @@
 import React from 'react';
+import ReactMarkdown from 'react-markdown';
 
 import { useChatRoom } from '../llm/hooks';
 
@@ -6,7 +7,16 @@ import './home-page.css';
 
 function HomePage() {
   const [inputValue, setInputValue] = React.useState('');
-  const { messages, sendMessage, sendMessageErrored } = useChatRoom();
+  const { messages, sendMessage, sendMessageErrored, isPending } = useChatRoom();
+  const messagesEndRef = React.useRef<HTMLDivElement>(null);
+
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  };
+
+  React.useEffect(() => {
+    scrollToBottom();
+  }, [messages]);
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -29,11 +39,14 @@ function HomePage() {
         {messages.map(message => (
           <div key={message.id} className={`message ${message.role === 'user' ? 'user-message' : 'other-message'}`}>
             <div className="message-content">
-              <span className="message-text">{message.content}</span>
+              <div className="message-text">
+                <ReactMarkdown>{message.content}</ReactMarkdown>
+              </div>
               <span className="message-time">{message.date}</span>
             </div>
           </div>
         ))}
+        <div ref={messagesEndRef} />
       </div>
 
       <form className="chat-input-form" onSubmit={handleSendMessage}>
@@ -44,8 +57,15 @@ function HomePage() {
           placeholder="Type a message..."
           className="chat-input"
         />
-        <button type="submit" className="send-button" disabled={!inputValue.trim()}>
-          Send
+        <button type="submit" className="send-button" disabled={!inputValue.trim() || isPending}>
+          {isPending ? (
+            <span className="loading-container">
+              <span className="loading-spinner" />
+              Sending...
+            </span>
+          ) : (
+            'Send'
+          )}
         </button>
       </form>
     </div>

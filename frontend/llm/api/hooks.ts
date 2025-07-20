@@ -1,29 +1,58 @@
-import { useMutation } from '@tanstack/react-query';
+import React from 'react';
+import { useMutation, useQuery } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
+import { asserts } from '@kamaalio/kamaal';
 
-import LLMClient from './client';
+import LLMClient, { type SendMessagePayload } from './client';
 import { APIError } from '../../common/errors/api';
+import type { LLMMessage } from '../schemas';
+
+type BaseHookResult = { isPending: boolean; isError: boolean };
 
 const client = new LLMClient();
 
-function handleGetMessagesError(error: Error) {
-  if (!(error instanceof APIError)) {
-    toast.error('Something went wrong');
-    return;
-  }
+function withErrorHandling<Params extends Array<unknown>, Result>(
+  action: (...params: Params) => Promise<Result>,
+  ...params: Params
+): () => Promise<Result> {
+  return async () => {
+    try {
+      return await action(...params);
+    } catch (error) {
+      asserts.invariant(error instanceof Error, 'error should have been a error');
 
-  toast.error(error.message);
+      if (!(error instanceof APIError)) {
+        toast.error('Something went wrong');
+
+        throw error;
+      }
+
+      toast.error(error.message);
+
+      throw error;
+    }
+  };
 }
 
-export function useGetMessages() {
-  const result = useMutation({ mutationFn: client.getMessages, onError: handleGetMessagesError });
+export function useGetMessages(): BaseHookResult & { messages: Array<LLMMessage>; refetchMessages: () => void } {
+  const { data, isPending, isError, refetch } = useQuery({
+    queryKey: ['messages'],
+    queryFn: withErrorHandling(client.getMessages),
+  });
 
-  return {
-    getMessages: result.mutateAsync,
-    isPending: result.isPending,
-    isSuccess: result.isSuccess,
-    isError: result.isError,
-    messages: result.data,
-    status: result.status,
-  };
+  return { messages: data?.data ?? [], isPending, isError, refetchMessages: refetch };
+}
+
+export function useSendMessage(): BaseHookResult & {
+  response: LLMMessage | undefined;
+  sendMessage: (payload: SendMessagePayload) => Promise<LLMMessage>;
+} {
+  const { mutateAsync, data, isPending, isError } = useMutation({ mutationFn: client.sendMessage });
+
+  const sendMessage = React.useCallback(
+    (payload: SendMessagePayload) => withErrorHandling(mutateAsync, payload)(),
+    [mutateAsync],
+  );
+
+  return { sendMessage, response: data, isPending, isError };
 }

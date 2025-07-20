@@ -1,59 +1,36 @@
 import React from 'react';
 
-import './home-page.css';
-import { useGetMessages } from '../llm/api/hooks';
+import { useChatRoom } from '../llm/hooks';
 
-type Message = {
-  id: string;
-  text: string;
-  sender: 'user' | 'other';
-  timestamp: Date;
-};
+import './home-page.css';
 
 function HomePage() {
-  const [messages, setMessages] = React.useState<Array<Message>>([
-    {
-      id: '1',
-      text: 'Hello! Welcome to the chat app',
-      sender: 'other',
-      timestamp: new Date(),
-    },
-  ]);
   const [inputValue, setInputValue] = React.useState('');
-  const { getMessages } = useGetMessages();
+  const { messages, sendMessage, sendMessageErrored } = useChatRoom();
 
-  React.useEffect(() => {
-    getMessages();
-  }, [getMessages]);
-
-  const handleSendMessage = (e: React.FormEvent) => {
+  const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (inputValue.trim()) {
-      const newMessage: Message = {
-        id: Date.now().toString(),
-        text: inputValue,
-        sender: 'user',
-        timestamp: new Date(),
-      };
-      setMessages([...messages, newMessage]);
-      setInputValue('');
-    }
+    const message = inputValue.trim();
+    if (!message) return;
+
+    await sendMessage({ message });
+    if (sendMessageErrored) return;
+
+    setInputValue('');
   };
 
   return (
     <div className="chat-app">
       <div className="chat-header">
-        <h1>Chat App</h1>
+        <h1>Agents Play</h1>
       </div>
 
       <div className="chat-messages">
         {messages.map(message => (
-          <div key={message.id} className={`message ${message.sender === 'user' ? 'user-message' : 'other-message'}`}>
+          <div key={message.id} className={`message ${message.role === 'user' ? 'user-message' : 'other-message'}`}>
             <div className="message-content">
-              <span className="message-text">{message.text}</span>
-              <span className="message-time">
-                {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-              </span>
+              <span className="message-text">{message.content}</span>
+              <span className="message-time">{message.date}</span>
             </div>
           </div>
         ))}

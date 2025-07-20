@@ -8,6 +8,9 @@ importers:
 
   .:
     dependencies:
+      '@kamaalio/kamaal':
+        specifier: ^0.7.8
+        version: 0.7.8
       '@tanstack/react-query':
         specifier: ^5.83.0
         version: 5.83.0(react@19.1.0)
@@ -132,6 +135,10 @@ packages:
   '@humanwhocodes/retry@0.4.3':
     resolution: {integrity: sha512-bV0Tgo9K4hfPCek+aMAn81RppFKv2ySDQeMoSZuvTASywNTnVJCArCZE2FWqpvIatKu7VMRLWlR1EazvVhDyhQ==}
     engines: {node: '>=18.18'}
+
+  '@kamaalio/kamaal@0.7.8':
+    resolution: {integrity: sha512-G/hWpOEjku48AF8exsc9RmaJ62gXMSdxQC1f4Dr1xAgW0pLh/Ut2RirtbvBFqLWU0+JxhaGenvGix4bvXmmggw==}
+    engines: {node: '>=21'}
 
   '@kamaalio/prettier-config@0.1.2':
     resolution: {integrity: sha512-1WW8H1y4np7QYimWFKkF4sm3BpMVYFE43fWWpuSLwP1gmdcy8+DxP7VPqpzP5f7HEtqd2WieqUzwLUnS6foDFw==}
@@ -846,6 +853,8 @@ snapshots:
   '@humanwhocodes/retry@0.3.1': {}
 
   '@humanwhocodes/retry@0.4.3': {}
+
+  '@kamaalio/kamaal@0.7.8': {}
 
   '@kamaalio/prettier-config@0.1.2': {}
 

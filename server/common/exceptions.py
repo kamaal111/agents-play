@@ -38,5 +38,18 @@ class AgentsPlayNotFoundError(AgentsPlayError):
         )
 
 
+class AgentsPlayGeneralError(AgentsPlayError):
+    def __init__(self, headers: dict[str, str] | None = None):
+        super().__init__(
+            HTTPStatus.INTERNAL_SERVER_ERROR,
+            [
+                AgentsPlayErrorDetail(
+                    msg="Something went wrong", type="internal_server_error"
+                )
+            ],
+            headers,
+        )
+
+
 def _base_model_as_dict(base_model: BaseModel) -> dict[str, Any]:
     return base_model.model_dump()

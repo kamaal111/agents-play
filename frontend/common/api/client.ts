@@ -13,7 +13,7 @@ type ZodInfer<T extends AnyZodType> = T extends z.ZodType ? z.infer<T> : zm.infe
 
 export const DefaultResponseSchema = z.object({ detail: z.string() });
 
-const HTTP_METHODS = { GET: 'GET' } as const;
+const HTTP_METHODS = { GET: 'GET', POST: 'POST' } as const;
 
 class BaseWebAPIClient {
   private readonly basePath: string;
@@ -30,6 +30,21 @@ class BaseWebAPIClient {
     responseValidator?: ResponseSchema;
   }): Promise<ZodInfer<ResponseSchema>> => {
     return this.fetch({ path, responseValidator, method: HTTP_METHODS.GET });
+  };
+
+  post = async <
+    Payload extends Record<string, unknown>,
+    ResponseSchema extends AnyZodType = typeof DefaultResponseSchema,
+  >({
+    path,
+    responseValidator,
+    payload,
+  }: {
+    path: string;
+    responseValidator?: ResponseSchema;
+    payload: Payload;
+  }): Promise<ZodInfer<ResponseSchema>> => {
+    return this.fetch({ path, responseValidator, method: HTTP_METHODS.POST, payload });
   };
 
   private fetch = async <ResponseSchema extends AnyZodType = typeof DefaultResponseSchema>({
@@ -50,6 +65,7 @@ class BaseWebAPIClient {
         body: this.makePayload(payload),
         credentials: 'include',
         mode: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
       });
     } catch (err) {
       throw new APIConnectionError({ cause: err });

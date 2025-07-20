@@ -1,5 +1,14 @@
 import BaseWebAPIClient from '../../common/api/client';
-import { GetMessagesResponseSchema, type GetMessagesResponse } from '../schemas';
+import {
+  CreateMessageResponseSchema,
+  GetMessagesResponseSchema,
+  type CreateMessageResponse,
+  type GetMessagesResponse,
+} from '../schemas';
+
+export type SendMessagePayload = {
+  message: string;
+};
 
 class LLMClient extends BaseWebAPIClient {
   constructor() {
@@ -8,6 +17,10 @@ class LLMClient extends BaseWebAPIClient {
 
   getMessages = async (): Promise<GetMessagesResponse> => {
     return this.get({ path: '/chats/messages', responseValidator: GetMessagesResponseSchema });
+  };
+
+  sendMessage = async (payload: SendMessagePayload): Promise<CreateMessageResponse> => {
+    return this.post({ path: '/chats', responseValidator: CreateMessageResponseSchema, payload });
   };
 }
 

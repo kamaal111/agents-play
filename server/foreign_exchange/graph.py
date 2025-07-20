@@ -1,19 +1,18 @@
 import json
 from typing import Literal, Self, cast
 
-from langchain_core.tools import tool
 from langgraph.graph import StateGraph
 from langgraph.prebuilt import create_react_agent
 from langgraph.types import Command as LanggraphCommand
 from pydantic import BaseModel
 
-from foreign_exchange.client import ForeignExchangeClient
 from foreign_exchange.conf import settings
 from foreign_exchange.currencies import (
     CURRENCIES,
     Currencies,
 )
 from foreign_exchange.prompts import determine_currency_prompt
+from foreign_exchange.tools import get_exchange_rates_tool
 
 assert settings.openai_api_key
 
@@ -59,40 +58,9 @@ class ForeignExchangeGraphState(BaseModel):
         return new_state
 
 
-foreign_exchange_client = ForeignExchangeClient()
-
-
-@tool
-async def get_exchange_rates(base_currency: str) -> dict[Currencies, float]:
-    """Get current foreign exchange rates for a base currency.
-
-    Args:
-        base_currency: The 3-letter currency code to use as base (e.g., 'USD', 'EUR', 'GBP')
-
-    Returns:
-        Dictionary mapping currency codes to their exchange rates relative to the base currency
-    """
-
-    base_currency_upper = base_currency.strip().upper()
-    if base_currency_upper not in CURRENCIES:
-        raise ValueError(
-            f"Unsupported currency: {base_currency}. Must be one of: {', '.join(CURRENCIES)}"
-        )
-
-    # Cast to proper type since we validated above
-    validated_base_currency = cast(Currencies, base_currency_upper)
-
-    try:
-        response = await foreign_exchange_client.get_rates(base=validated_base_currency)
-    except Exception as e:
-        raise RuntimeError(
-            f"Failed to get exchange rates for '{base_currency}': {str(e)}"
-        )
-
-    return response.rates
-
-
-gpt4o_mini_agent = create_react_agent("openai:gpt-4o-mini", tools=[get_exchange_rates])
+gpt4o_mini_agent = create_react_agent(
+    "openai:gpt-4o-mini", tools=[get_exchange_rates_tool]
+)
 
 
 def get_user_currency_input_node(

@@ -33,6 +33,7 @@ packages = [
     "server/health",
     "server/app_api",
     "server/database",
+    "server/todos",
 ]
 
 [dependency-groups]
@@ -53,6 +54,7 @@ packages = [
     "health",
     "app_api",
     "database",
+    "todos",
 ]
 python_version = "3.13"
 strict = true

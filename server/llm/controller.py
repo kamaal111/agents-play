@@ -69,7 +69,7 @@ class LLMController(LLMControllable):
             date=request_time,
         )
         end_state = await llm_graph_invoke_question(
-            question=question, messages=messages
+            database=self.database, question=question, messages=messages
         )
         response_time = datetime_now_with_timezone()
         if not end_state.is_ok:

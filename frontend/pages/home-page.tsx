@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import React from 'react';
 
 import './home-page.css';
+import { useGetMessages } from '../llm/api/hooks';
 
 type Message = {
   id: string;
@@ -10,7 +11,7 @@ type Message = {
 };
 
 function HomePage() {
-  const [messages, setMessages] = useState<Array<Message>>([
+  const [messages, setMessages] = React.useState<Array<Message>>([
     {
       id: '1',
       text: 'Hello! Welcome to the chat app',
@@ -18,7 +19,12 @@ function HomePage() {
       timestamp: new Date(),
     },
   ]);
-  const [inputValue, setInputValue] = useState('');
+  const [inputValue, setInputValue] = React.useState('');
+  const { getMessages } = useGetMessages();
+
+  React.useEffect(() => {
+    getMessages();
+  }, [getMessages]);
 
   const handleSendMessage = (e: React.FormEvent) => {
     e.preventDefault();

@@ -21,7 +21,8 @@
         "charliermarsh.ruff",
         "naumovs.color-highlight",
         "ms-python.mypy-type-checker",
-        "esbenp.prettier-vscode"
+        "esbenp.prettier-vscode",
+        "dbaeumer.vscode-eslint"
       ]
     }
   },

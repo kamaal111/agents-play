@@ -1,7 +1,10 @@
 from functools import reduce
 from typing import Any, Literal
 
+from foreign_exchange.currencies import Currencies
+from foreign_exchange.graph import foreign_exchange_rate_invoke
 from langchain_core.messages import AIMessage
+from langchain_core.tools import tool
 from langgraph.graph.state import CompiledStateGraph, StateGraph
 from langgraph.prebuilt import create_react_agent
 from langgraph.types import Command as LanggraphCommand
@@ -72,8 +75,70 @@ class LLMGraphState(BaseModel):
         return isinstance(self.result, LLMGraphStateSuccess)
 
 
+@tool
+async def get_exchange_rates(user_request: str) -> dict[Currencies, float] | str:
+    """
+    Get current foreign exchange rates for various currencies based on user request.
+
+    This tool retrieves real-time or recent foreign exchange rates for different
+    currency pairs. It can handle various types of currency-related requests such as
+    converting between specific currencies, getting rates for multiple currencies,
+    or providing exchange rate information for trading or travel purposes.
+
+    Args:
+        user_request (str): Natural language request describing what exchange rates
+            the user wants. Examples:
+            - "What's the USD to EUR exchange rate?"
+            - "Convert 100 dollars to yen"
+            - "Show me rates for GBP, EUR, and JPY"
+            - "What's the current exchange rate from British pounds to US dollars?"
+
+    Returns:
+        dict[Currencies, float] | str: Either a dictionary mapping currency codes
+            to their exchange rates as floating point numbers, or an error message
+            string if the request could not be processed.
+
+            Success example: {Currencies.USD: 1.0, Currencies.EUR: 0.85}
+            Error example: "Unable to fetch exchange rates for the requested currencies"
+
+    Note:
+        The function handles various currency formats and can interpret natural
+        language requests to determine which currencies the user is interested in.
+        If there's an error fetching the rates, a descriptive error message is returned.
+    """
+    result = await foreign_exchange_rate_invoke(request=user_request)
+    if result.failure_message is not None:
+        return result.failure_message
+
+    return result.rates
+
+
+LLM_AGENTS_SYSTEM_PROMPT = """
+You are a helpful AI assistant that can help users with various tasks. You have access to a foreign exchange rates tool that can provide current currency exchange rates.
+
+IMPORTANT: Only use the get_exchange_rates tool when the user specifically asks about:
+- Currency exchange rates
+- Converting between currencies
+- Current foreign exchange information
+- Currency values or comparisons
+
+DO NOT use the get_exchange_rates tool for:
+- General questions unrelated to currencies
+- Mathematical calculations that don't involve currency conversion
+- Other topics not related to foreign exchange
+
+When the user asks about exchange rates or currency conversion, use the get_exchange_rates tool with their exact request to get the most current and accurate information.
+
+For all other questions, respond normally without using any tools.
+""".strip()
+
 LLM_AGENTS: dict[str, CompiledStateGraph[Any]] = reduce(
-    lambda acc, name: {**acc, name: create_react_agent(name, tools=[])},
+    lambda acc, name: {
+        **acc,
+        name: create_react_agent(
+            name, tools=[get_exchange_rates], prompt=LLM_AGENTS_SYSTEM_PROMPT
+        ),
+    },
     {"openai:gpt-4o-mini"},
     {},
 )
@@ -107,7 +172,7 @@ async def llm_entry_node(state: LLMGraphState) -> LLMExchangeGraphCommand:
         )
 
     messages = response["messages"]
-    ai_message = messages[1]
+    ai_message = messages[-1]
 
     assert isinstance(ai_message, AIMessage)
 

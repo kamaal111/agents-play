@@ -9,7 +9,7 @@ from pydantic import BaseModel
 from sqlmodel import Session
 
 from todos.conf import settings
-from todos.models import Todo
+from todos.models import Todo, TodoDataclass
 from todos.schemas import TodoCreatePayload
 
 if TYPE_CHECKING:
@@ -51,8 +51,8 @@ class TodosGraphState(BaseModel):
     user_input: str
     action: TodosActionTaken | None
     result: TodosGraphStateSuccess | TodosGraphStateFailure | None
-    todos: list[Todo]
-    new_todo: Todo | None
+    todos: list[TodoDataclass]
+    new_todo: TodoDataclass | None
 
     def with_error_result(
         self, error_result: TodosGraphStateFailure
@@ -77,10 +77,17 @@ class TodosGraphState(BaseModel):
 
         return self
 
-    def with_new_todo(self, new_todo: Todo) -> "TodosGraphState":
+    def with_new_todo(self, new_todo: TodoDataclass) -> "TodosGraphState":
         assert self.action == "create"
 
         self.new_todo = new_todo
+
+        return self
+
+    def with_todos(self, todos: list[TodoDataclass]) -> "TodosGraphState":
+        assert self.action == "list"
+
+        self.todos = todos
 
         return self
 
@@ -215,7 +222,7 @@ async def todos_create_node(
     configurable: TodosGraphConfig = config["configurable"]  # type: ignore
     database = configurable["database"]
 
-    new_todo: Todo
+    new_todo: TodoDataclass
     with Session(database.engine) as session:
         new_todo = Todo.create(
             payload=TodoCreatePayload(title=todo_title), session=session
@@ -232,10 +239,16 @@ async def todos_create_node(
 def todos_list_node(
     state: TodosGraphState, config: RunnableConfig
 ) -> TodosGraphCommand:
-    # configurable: TodosGraphConfig = config["configurable"]  # type: ignore
+    configurable: TodosGraphConfig = config["configurable"]  # type: ignore
+    database = configurable["database"]
+
+    with Session(database.engine) as session:
+        todos = Todo.list(session=session)
 
     return TodosGraphCommand(
-        update=state.with_success_result(TodosGraphStateSuccess(action="list")),
+        update=state.with_success_result(
+            TodosGraphStateSuccess(action="list")
+        ).with_todos(todos),
         goto="todos_finish_node",
     )
 
